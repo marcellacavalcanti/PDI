@@ -11,7 +11,7 @@ article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, 
 audio, canvas, video { display: inline-block; }
 audio:not([controls]) { display: none; height: 0; }
 [hidden] { display: none; }
-html { background: #fff; color: #000; font-family: calibri; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+html { background: #fff; color: #000; font-family: sans-serif; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
 a:focus { outline: thin dotted; }
 a:active, a:hover { outline: 0; }
@@ -395,6 +395,18 @@ span.icon > [class^="icon-"], span.icon > [class*=" icon-"] { cursor: default; }
 <li>
 <ul class="sectlevel2">
 <li><a href="#_4_1_exerc_cio_1">4.1 Exercício 1</a></li>
+</ul>
+</li>
+<li><a href="#_5_se_o_8_filtragem_no_dom_nio_da_frequ_ncia">5. Seção 8: Filtragem no domínio da frequência</a></li>
+<li>
+<ul class="sectlevel2">
+<li><a href="#_5_1_exerc_cio">5.1 Exercício</a></li>
+</ul>
+</li>
+<li><a href="#_6_se_o_10_canny_e_a_arte_com_pontilhismo">6. Seção 10: Canny e a arte com pontilhismo</a></li>
+<li>
+<ul class="sectlevel2">
+<li><a href="#_6_1_exerc_cio">6.1 Exercício</a></li>
 </ul>
 </li>
 <li><a href="#_bibliografia">Bibliografia</a></li>
@@ -1466,6 +1478,327 @@ int main(int, char**){
 </div>
 </div>
 <div class="sect1">
+<h2 id="_5_se_o_8_filtragem_no_dom_nio_da_frequ_ncia">5. Seção 8: Filtragem no domínio da frequência</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_5_1_exerc_cio">5.1 Exercício</h3>
+<div class="paragraph">
+<p>A partir do algoritmo da seção no tutorial da disciplina, implementar o filtro homomórfico para regular imagens mal iluminadas.</p>
+</div>
+<div class="sect3">
+<h4 id="_c_digo_6">Código</h4>
+<div class="sidebarblock">
+<div class="content">
+<div class="listingblock">
+<div class="title">filtrohomomorfico.cpp</div>
+<div class="content">
+<pre class="prettyprint c++ language-c++"><code>#include &lt;iostream&gt;
+#include &lt;opencv2/opencv.hpp&gt;
+#include &lt;opencv2/imgproc/imgproc.hpp&gt;
+
+using namespace cv;
+using namespace std;
+
+// troca os quadrantes da imagem da DFT
+void deslocaDFT(Mat&amp; image ){
+  Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para
+  // evitar cópias de tamanho desigual
+  image = image(Rect(0, 0, image.cols &amp; -2, image.rows &amp; -2));
+  int cx = image.cols/2;
+  int cy = image.rows/2;
+
+  // reorganiza os quadrantes da transformada
+  // A B   -&gt;  D C
+  // C D       B A
+  A = image(Rect(0, 0, cx, cy));
+  B = image(Rect(cx, 0, cx, cy));
+  C = image(Rect(0, cy, cx, cy));
+  D = image(Rect(cx, cy, cx, cy));
+
+  // A &lt;-&gt; D
+  A.copyTo(tmp);  D.copyTo(A);  tmp.copyTo(D);
+
+  // C &lt;-&gt; B
+  C.copyTo(tmp);  B.copyTo(C);  tmp.copyTo(B);
+}
+
+int main(int , char**){
+  Mat imaginaryInput, complexImage, multsp;
+  Mat padded, filter, mag;
+  Mat image, imagegray, tmp;
+  Mat_&lt;float&gt; realInput, zeros;
+  vector&lt;Mat&gt; planos;
+
+  // guarda tecla capturada
+  char key;
+
+  image = imread("imagem1.png",CV_LOAD_IMAGE_GRAYSCALE);
+
+  // valores ideais dos tamanhos da imagem
+  // para calculo da DFT
+  int dft_M, dft_N;
+
+  // captura uma imagem para recuperar as
+  // informacoes de gravação
+
+
+  // identifica os tamanhos otimos para
+  // calculo do FFT
+  dft_M = getOptimalDFTSize(image.rows);
+  dft_N = getOptimalDFTSize(image.cols);
+
+  // realiza o padding da imagem
+  copyMakeBorder(image, padded, 0,
+                 dft_M - image.rows, 0,
+                 dft_N - image.cols,
+                 BORDER_CONSTANT, Scalar::all(0));
+
+  // parte imaginaria da matriz complexa (preenchida com zeros)
+  zeros = Mat_&lt;float&gt;::zeros(padded.size());
+
+  // prepara a matriz complexa para ser preenchida
+  complexImage = Mat(padded.size(), CV_32FC2, Scalar(0));
+
+  // a função de transferência (filtro frequencial) deve ter o
+  // mesmo tamanho e tipo da matriz complexa
+  filter = complexImage.clone();
+
+  // cria uma matriz temporária para criar as componentes real
+  // e imaginaria do filtro ideal
+  tmp = Mat(dft_M, dft_N, CV_32F);
+
+  float gh, gl, c, d0;
+
+  cout &lt;&lt; "Escolha os parâmetros gh, gl, c e D0 para o filtro homomórfico:" &lt;&lt; endl &lt;&lt; "gh = ";
+  cin &gt;&gt; gh;
+  cout &lt;&lt; "gl = ";
+  cin &gt;&gt; gl;
+  cout &lt;&lt; "c = ";
+  cin &gt;&gt; c;
+  cout &lt;&lt; "D0 = ";
+  cin &gt;&gt; d0;
+
+  int M=dft_M;
+  int N=dft_N;
+
+  // prepara o filtro passa-baixas ideal
+  for(int i=0; i&lt;dft_M; i++){
+    for(int j=0; j&lt;dft_N; j++){
+        tmp.at&lt;float&gt; (i,j) = (gh-gl)*(1.0-exp(-1.0*(float)c*((((float)i-M/2.0)*((float)i-M/2.0) + ((float)j-N/2.0)*((float)j-N/2.0))/(d0*d0))))+ gl;
+    }
+  }
+
+  // cria a matriz com as componentes do filtro e junta
+  // ambas em uma matriz multicanal complexa
+  Mat comps[]= {tmp, tmp};
+  merge(comps, 2, filter);
+
+  for(;;){
+
+    //exp(complexImage, complexImage);
+
+    // limpa o array de matrizes que vao compor a
+    // imagem complexa
+    planos.clear();
+    // cria a compoente real
+    realInput = Mat_&lt;float&gt;(padded);
+    // insere as duas componentes no array de matrizes
+    planos.push_back(realInput);
+    planos.push_back(zeros);
+
+    // combina o array de matrizes em uma unica
+    // componente complexa
+    merge(planos, complexImage);
+
+    //add(complexImage, 1, complexImage);
+
+    //exp(complexImage, complexImage);
+
+    // calcula o dft
+    dft(complexImage, complexImage);
+
+    // realiza a troca de quadrantes
+    deslocaDFT(complexImage);
+
+    // aplica o filtro frequencial
+    mulSpectrums(complexImage,filter,complexImage,0);
+
+    // limpa o array de planos
+    planos.clear();
+    // separa as partes real e imaginaria para modifica-las
+    split(complexImage, planos);
+
+    // recompoe os planos em uma unica matriz complexa
+    merge(planos, complexImage);
+
+    // troca novamente os quadrantes
+    deslocaDFT(complexImage);
+
+    // calcula a DFT inversa
+    idft(complexImage, complexImage);
+
+    //log(complexImage, complexImage);
+
+    // limpa o array de planos
+    planos.clear();
+
+    // separa as partes real e imaginaria da
+    // imagem filtrada
+    split(complexImage, planos);
+
+    // normaliza a parte real para exibicao
+    normalize(planos[0], planos[0], 0, 1, CV_MINMAX);
+
+    imshow("original", image);
+    imshow("filtrada", planos[0]);
+
+    key = (char) waitKey(10);
+    if( key == 27 ) break; // esc pressed!
+  }
+  return 0;
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_descri_o_do_c_digo_6">Descrição do código</h4>
+
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_6_se_o_10_canny_e_a_arte_com_pontilhismo">6. Seção 10: Canny e a arte com pontilhismo</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_6_1_exerc_cio">6.1 Exercício</h3>
+<div class="paragraph">
+<p>Utilizar como referências os algoritmos sobre Canny e pontilhismo dados no tutorial da disciplina para, utilizando as bordas de Canny, aprimorar a qualidade da imagem pontilhista.</p>
+</div>
+<div class="sect3">
+<h4 id="_c_digo_7">Código</h4>
+<div class="sidebarblock">
+<div class="content">
+<div class="listingblock">
+<div class="title">cannypoints.cpp</div>
+<div class="content">
+<pre class="prettyprint c++ language-c++"><code>#include &lt;iostream&gt;
+#include &lt;opencv2/opencv.hpp&gt;
+#include &lt;fstream&gt;
+#include &lt;iomanip&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+#include &lt;numeric&gt;
+#include &lt;ctime&gt;
+#include &lt;cstdlib&gt;
+
+using namespace std;
+using namespace cv;
+
+#define STEP 10
+#define JITTER 5
+#define RAIO 5
+
+int main(int argc, char** argv){
+  vector&lt;int&gt; yrange;
+  vector&lt;int&gt; xrange;
+
+  Mat image, frame, points, border;
+
+  int width, height, gray;
+  int x, y;
+
+  Vec3b val;
+
+  image= imread(argv[1],CV_LOAD_IMAGE_COLOR);
+
+  srand(time(0));
+
+  if(!image.data){
+  cout &lt;&lt; "nao abriu" &lt;&lt; argv[1] &lt;&lt; endl;
+    cout &lt;&lt; argv[0] &lt;&lt; " imagem.jpg";
+    exit(0);
+  }
+
+  width=image.size().width;
+  height=image.size().height;
+
+  xrange.resize(height/STEP);
+  yrange.resize(width/STEP);
+
+  iota(xrange.begin(), xrange.end(), 0);
+  iota(yrange.begin(), yrange.end(), 0);
+
+  for(uint i=0; i&lt;xrange.size(); i++){
+    xrange[i]= xrange[i]*STEP+STEP/2;
+    yrange[i]= yrange[i]*STEP+STEP/2;
+  }
+
+  points = Mat(height, width, CV_8UC3, Scalar(255, 255, 255));
+
+  random_shuffle(xrange.begin(), xrange.end());
+
+  for(auto i : xrange){
+    random_shuffle(yrange.begin(), yrange.end());
+    for(auto j : yrange){
+      x = i+rand()%(2*JITTER)-JITTER+1;
+      y = j+rand()%(2*JITTER)-JITTER+1;
+      val = image.at&lt;Vec3b&gt;(x,y);
+      circle(points,
+             cv::Point(y,x),
+             RAIO,
+             CV_RGB(val[2],val[1],val[0]),
+             -1,
+             CV_AA);
+    }
+  }
+
+  imshow("pontilhismo", points);
+  waitKey();
+
+  int l = 20;
+  int r = 1;
+
+  for(int a=0; a&lt;10; a++){
+    Canny(image, border, l, 3*l);
+    l=l*10;
+    for(int i=1; i&lt;width; i++){
+      for(int j=1; j&lt;height; j++){
+        if(border.at&lt;uchar&gt;(i,j) == 255){
+          val = image.at&lt;Vec3b&gt;(i,j);
+          circle(points,
+                 cv::Point(j,i),
+                 r,
+                 CV_RGB(val[2],val[1],val[0]),
+                 -1,
+                 CV_AA);
+        }
+      }
+    }
+    r=r+1;
+  }
+
+  imwrite("cannypoints.jpg", points);
+  return 0;
+}
+</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_descri_o_do_c_digo_7">Descrição do código</h4>
+
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_bibliografia">Bibliografia</h2>
 <div class="sectionbody">
 <div class="ulist bibliography">
@@ -1486,7 +1819,7 @@ int main(int, char**){
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2016-03-21 19:52:46 BRT
+Last updated 2016-05-10 23:34:30 BRT
 </div>
 </div>
 </body>
