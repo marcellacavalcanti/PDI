@@ -1583,7 +1583,7 @@ int main(int , char**){
   int M=dft_M;
   int N=dft_N;
 
-  // prepara o filtro passa-baixas ideal
+  // prepara o filtro homomorfico
   for(int i=0; i&lt;dft_M; i++){
     for(int j=0; j&lt;dft_N; j++){
         tmp.at&lt;float&gt; (i,j) = (gh-gl)*(1.0-exp(-1.0*(float)c*((((float)i-M/2.0)*((float)i-M/2.0) + ((float)j-N/2.0)*((float)j-N/2.0))/(d0*d0))))+ gl;
@@ -1666,7 +1666,54 @@ int main(int , char**){
 </div>
 <div class="sect3">
 <h4 id="_descri_o_do_c_digo_6">Descrição do código</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="prettyprint c++ language-c++"><code>  float gh, gl, c, d0;
 
+  cout &lt;&lt; "Escolha os parâmetros gh, gl, c e D0 para o filtro homomórfico:" &lt;&lt; endl &lt;&lt; "gh = ";
+  cin &gt;&gt; gh;
+  cout &lt;&lt; "gl = ";
+  cin &gt;&gt; gl;
+  cout &lt;&lt; "c = ";
+  cin &gt;&gt; c;
+  cout &lt;&lt; "D0 = ";
+  cin &gt;&gt; d0;
+
+  int M=dft_M;
+  int N=dft_N;
+
+  // prepara o filtro homomorfico
+  for(int i=0; i&lt;dft_M; i++){
+    for(int j=0; j&lt;dft_N; j++){
+        tmp.at&lt;float&gt; (i,j) = (gh-gl)*(1.0-exp(-1.0*(float)c*((((float)i-M/2.0)*((float)i-M/2.0) + ((float)j-N/2.0)*((float)j-N/2.0))/(d0*d0))))+ gl;
+    }
+  }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Basicamente, as únicas modificações feitas no algoritmo já dado no tutorial foram a mudança do filtro passa-baixas para o filtro homomórfico - apenas mudando sua fórmula matemática - e a entrada dos parâmetros do filtro como os floats <em>gh</em>, <em>gl</em>, <em>c</em> e <em>d0</em>.</p>
+</div>
+<div class="paragraph">
+<p>A fórmula matemática que descreve o filtro homomórfico é dada abaixo:</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/formulafiltro.png" alt="formulafiltro"></span></p>
+</div>
+<div class="paragraph">
+<p>Para a execução do código, foi utilizada a seguinte imagem, que, no início do código, já é processada em tons de cinza.</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/imagem1.png" alt="imagem1"></span> <span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/original.png" alt="original"></span></p>
+</div>
+<div class="paragraph">
+<p>Rodando o algoritmo com os parâmetros abaixo, obteve-se o seguinte resultado:</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/filtrohomoexe.png" alt="filtrohomoexe"></span></p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/filtrada.png" alt="filtrada"></span></p>
+</div>
 </div>
 </div>
 </div>
@@ -1793,7 +1840,59 @@ int main(int argc, char** argv){
 </div>
 <div class="sect3">
 <h4 id="_descri_o_do_c_digo_7">Descrição do código</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="prettyprint c++ language-c++"><code>#define STEP 10
+#define JITTER 5
+#define RAIO 5</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A primeira modificação feita no algoritmo de pontilhismo dado no tutorial foi aumentar os parâmetros <em>STEP</em>, <em>JITTER</em> e <em>RAIO</em>, para que, no primeiro conjunto de iterações sobre a imagem, sejam criados círculos maiores e espaçados na imagem pontilhista. Abaixo estão a imagem original e a criada após esse passo:</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/imagem2.png" alt="imagem2"></span> <span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/pontilhismo.png" alt="pontilhismo"></span></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="prettyprint c++ language-c++"><code>  int l = 20;
+  int r = 1;
 
+  for(int a=0; a&lt;10; a++){
+    Canny(image, border, l, 3*l);
+    l=l*10;
+    for(int i=1; i&lt;width; i++){
+      for(int j=1; j&lt;height; j++){
+        if(border.at&lt;uchar&gt;(i,j) == 255){
+          val = image.at&lt;Vec3b&gt;(i,j);
+          circle(points,
+                 cv::Point(j,i),
+                 r,
+                 CV_RGB(val[2],val[1],val[0]),
+                 -1,
+                 CV_AA);
+        }
+      }
+    }
+    r=r+1;
+  }</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Depois do primeiro passo, a imagem passará por um novo conjunto de 10 iterações, onde, começando com um limiar inferior igual a 20 - que será igual a 200 na última iteração -, o algoritmo de Canny será rodado. A cada iteração o limiar inferior aumenta, enquanto o valor de raio para desenhar os círculos também, desenhando, dessa forma, círculos maiores para limiares maiores.</p>
+</div>
+<div class="paragraph">
+<p>O resultado do algoritmo de Canny para a imagem utilizada, com limiares de 20 e 100, respectivamente, é mostrado abaixo:</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/cannyborders20.png" alt="cannyborders20"></span> <span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/cannyborders100.png" alt="cannyborders100"></span></p>
+</div>
+<div class="paragraph">
+<p>O resultado final do algoritmo <code>cannypoints.cpp</code> é:</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="https://raw.githubusercontent.com/marcellacavalcanti/PDI/master/cannypoints.png" alt="cannypoints"></span></p>
+</div>
 </div>
 </div>
 </div>
@@ -1819,7 +1918,7 @@ int main(int argc, char** argv){
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2016-05-10 23:34:30 BRT
+Last updated 2016-05-11 17:09:57 BRT
 </div>
 </div>
 </body>
